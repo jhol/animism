@@ -3,10 +3,14 @@
 import math
 import cairo
 import sys
+import subprocess as sp
 
 #t = float(sys.argv[1])
 
+FFMPEG_BIN = '/usr/bin/ffmpeg'
+
 WIDTH, HEIGHT = 1920, 1080
+FRAME_COUNT = 200
 
 def arrow_head(ctx):
     ctx.move_to(0, 0)
@@ -33,52 +37,80 @@ def arrow(ctx, s, e, arrow_size=20):
 
     ctx.restore()
 
-surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
-ctx = cairo.Context (surface)
+def draw_frame(t):
+    surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
+    ctx = cairo.Context (surface)
 
-ctx.rectangle(0, 0, WIDTH, HEIGHT)
-ctx.set_source_rgb(1, 1, 1)
-ctx.fill ()
+    ctx.rectangle(0, 0, WIDTH, HEIGHT)
+    ctx.set_source_rgb(1, 1, 1)
+    ctx.fill ()
 
-o = (HEIGHT/2, HEIGHT/2)
-d = 360
-axis_length = d * 1.2
-x_history = int(o[0] + axis_length * 1.1)
-blob_radius = 10
+    o = (HEIGHT/2, HEIGHT/2)
+    d = 360
+    axis_length = d * 1.2
+    x_history = int(o[0] + axis_length * 1.1)
+    blob_radius = 10
 
-t = 10
-f = 0.004
+    f = 0.004
 
-phi = t * f * math.pi * 2
-p = (o[0] + d * math.cos(phi), o[0] - d * math.sin(phi))
+    phi = t * f * math.pi * 2
+    p = (o[0] + d * math.cos(phi), o[0] - d * math.sin(phi))
 
-# Draw the axes
-ctx.set_source_rgb(0.75, 0.75, 0.75)
-ctx.set_line_width(5)
-arrow(ctx, (o[0] - axis_length, o[1]), (o[0] + axis_length, o[1]))
-arrow(ctx, (o[0], o[1] + axis_length), (o[0], o[1] - axis_length))
+    # Draw the axes
+    ctx.set_source_rgb(0.75, 0.75, 0.75)
+    ctx.set_line_width(5)
+    arrow(ctx, (o[0] - axis_length, o[1]), (o[0] + axis_length, o[1]))
+    arrow(ctx, (o[0], o[1] + axis_length), (o[0], o[1] - axis_length))
 
-# Draw the link-line
-ctx.move_to(*p)
-ctx.line_to(x_history, p[1])
-ctx.save()
-ctx.set_dash([10, 10])
-ctx.stroke()
-ctx.restore()
+    # Draw the link-line
+    ctx.move_to(*p)
+    ctx.line_to(x_history, p[1])
+    ctx.save()
+    ctx.set_dash([10, 10])
+    ctx.stroke()
+    ctx.restore()
 
-# Draw the phasor
-ctx.set_source_rgb(0, 0, 0)
-ctx.set_line_width(5)
-ctx.arc(*p, blob_radius, 0, math.pi * 2)
-ctx.fill()
-arrow(ctx, o, (o[0] + d * math.cos(phi), o[0] - d * math.sin(phi)))
+    # Draw the phasor
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_line_width(5)
+    ctx.arc(*p, blob_radius, 0, math.pi * 2)
+    ctx.fill()
+    arrow(ctx, o, (o[0] + d * math.cos(phi), o[0] - d * math.sin(phi)))
 
-# Draw the wave-history
-for x in range(x_history, WIDTH + 10):
-    phi = (t - x + x_history) * f * math.pi * 2
-    ctx.line_to(x, o[0] - d * math.sin(phi))
-ctx.set_source_rgb(0, 0, 0)
-ctx.stroke()
+    # Draw the wave-history
+    for x in range(x_history, WIDTH + 10):
+        phi = (t - x + x_history) * f * math.pi * 2
+        ctx.line_to(x, o[0] - d * math.sin(phi))
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.stroke()
 
+    return surface
 
-surface.write_to_png ("example.png") # Output to PNG
+command = [FFMPEG_BIN,
+        '-y', # (optional) overwrite output file if it exists
+        '-f', 'image2pipe',
+        '-r', '30',
+        '-vcodec', 'png',
+        '-r', '30', # frames per second
+        '-i', '-', # The imput comes from a pipe
+        '-vcodec', 'libx264',
+        '-r', '30',
+        'out.mp4' ]
+
+p = sp.Popen( command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+
+try:
+    png_path = '/tmp/f.png'
+    for t in range(FRAME_COUNT):
+        print(t)
+        frame = draw_frame(t)
+        frame.write_to_png(png_path)
+        with open(png_path, 'rb') as f:
+          p.stdin.write(f.read())
+    p.stdin.close()
+    p.wait()
+except Exception as e:
+    print(e)
+    pass
+
+print(p.stderr.read().decode())
