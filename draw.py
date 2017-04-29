@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import cairo
 import math
 import multiprocessing
@@ -98,6 +99,12 @@ def make_frame(frame_num):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Render an animation with cairo and ffmpeg')
+    parser.add_argument('out_path', metavar='OUT_PATH', type=str, nargs='?',
+        help='The output file path', default='out.mp4')
+    args = parser.parse_args()
+
     command = [FFMPEG_BIN,
             '-y', # (optional) overwrite output file if it exists
             '-f', 'image2pipe',
@@ -107,7 +114,7 @@ if __name__ == '__main__':
             '-i', '-', # The imput comes from a pipe
             '-vcodec', 'libx264',
             '-r', '30',
-            'out.mp4' ]
+            args.out_path ]
 
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
     frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
@@ -127,5 +134,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         pass
-
-    print(p.stderr.read().decode())
