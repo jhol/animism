@@ -103,6 +103,8 @@ if __name__ == '__main__':
         description='Render an animation with cairo and ffmpeg')
     parser.add_argument('out_path', metavar='OUT_PATH', type=str, nargs='?',
         help='The output file path', default='out.mp4')
+    parser.add_argument('-p', '--preview', action='store_true',
+        help='Display a preview window')
     parser.add_argument('-v', '--verbose', action='store_true',
         help='Print verbose output to stdout')
     args = parser.parse_args()
@@ -116,7 +118,12 @@ if __name__ == '__main__':
             '-i', '-', # The imput comes from a pipe
             '-vcodec', 'libx264',
             '-r', '30',
-            args.out_path ]
+            args.out_path] + ([
+            '-vcodec', 'rawvideo',
+            '-pix_fmt', 'yuyv422',
+            '-window_size', '%dx%d' % (WIDTH/2, HEIGHT/2),
+            '-f', 'sdl', 'Preview'
+            ] if args.preview else [])
 
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
     frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
