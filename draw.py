@@ -103,6 +103,8 @@ if __name__ == '__main__':
         description='Render an animation with cairo and ffmpeg')
     parser.add_argument('out_path', metavar='OUT_PATH', type=str, nargs='?',
         help='The output file path', default='out.mp4')
+    parser.add_argument('-v', '--verbose', action='store_true',
+        help='Print verbose output to stdout')
     args = parser.parse_args()
 
     command = [FFMPEG_BIN,
@@ -119,7 +121,8 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
     frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
 
-    p = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+    p = sp.Popen(command, stdin=sp.PIPE,
+            stdout=None if args.verbose else sp.PIPE, stderr=sp.STDOUT)
     bar = progressbar.ProgressBar(max_value = FRAME_COUNT)
 
     try:
