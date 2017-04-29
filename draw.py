@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import math
 import cairo
-import sys
+import math
+import multiprocessing
+import os
 import subprocess as sp
-
-#t = float(sys.argv[1])
+import sys
+import tempfile
 
 FFMPEG_BIN = '/usr/bin/ffmpeg'
 
@@ -86,31 +87,43 @@ def draw_frame(t):
 
     return surface
 
-command = [FFMPEG_BIN,
-        '-y', # (optional) overwrite output file if it exists
-        '-f', 'image2pipe',
-        '-r', '30',
-        '-vcodec', 'png',
-        '-r', '30', # frames per second
-        '-i', '-', # The imput comes from a pipe
-        '-vcodec', 'libx264',
-        '-r', '30',
-        'out.mp4' ]
 
-p = sp.Popen( command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+def make_frame(frame_num):
+    frame = draw_frame(frame_num)
+    f, path = tempfile.mkstemp('.png')
+    os.close(f)
+    frame.write_to_png(path)
+    return path
 
-try:
-    png_path = '/tmp/f.png'
-    for t in range(FRAME_COUNT):
-        print(t)
-        frame = draw_frame(t)
-        frame.write_to_png(png_path)
-        with open(png_path, 'rb') as f:
-          p.stdin.write(f.read())
-    p.stdin.close()
-    p.wait()
-except Exception as e:
-    print(e)
-    pass
 
-print(p.stderr.read().decode())
+if __name__ == '__main__':
+    command = [FFMPEG_BIN,
+            '-y', # (optional) overwrite output file if it exists
+            '-f', 'image2pipe',
+            '-r', '30',
+            '-vcodec', 'png',
+            '-r', '30', # frames per second
+            '-i', '-', # The imput comes from a pipe
+            '-vcodec', 'libx264',
+            '-r', '30',
+            'out.mp4' ]
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
+
+    p = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+
+    try:
+        for frame_num in range(FRAME_COUNT):
+            print('%d / %d' % (frame_num, FRAME_COUNT))
+            png_path = frames[frame_num].get()
+            with open(png_path, 'rb') as f:
+                p.stdin.write(f.read())
+            os.remove(png_path)
+        p.stdin.close()
+        p.wait()
+    except Exception as e:
+        print(e)
+        pass
+
+    print(p.stderr.read().decode())
