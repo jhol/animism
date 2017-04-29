@@ -3,6 +3,7 @@
 import cairo
 import math
 import multiprocessing
+import progressbar
 import os
 import subprocess as sp
 import sys
@@ -112,14 +113,15 @@ if __name__ == '__main__':
     frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
 
     p = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+    bar = progressbar.ProgressBar(max_value = FRAME_COUNT)
 
     try:
         for frame_num in range(FRAME_COUNT):
-            print('%d / %d' % (frame_num, FRAME_COUNT))
             png_path = frames[frame_num].get()
             with open(png_path, 'rb') as f:
                 p.stdin.write(f.read())
             os.remove(png_path)
+            bar.update(frame_num)
         p.stdin.close()
         p.wait()
     except Exception as e:
