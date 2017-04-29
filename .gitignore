@@ -1,5 +1,13 @@
 
 #
+# EasyInstall temporaries
+#
+
+animism.egg-info/
+build/
+dist/
+
+#
 # Output files
 #
 
