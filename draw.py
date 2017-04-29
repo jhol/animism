@@ -12,9 +12,6 @@ import tempfile
 
 FFMPEG_BIN = '/usr/bin/ffmpeg'
 
-WIDTH, HEIGHT = 1920, 1080
-FRAME_COUNT = 200
-
 def arrow_head(ctx):
     ctx.move_to(0, 0)
     ctx.line_to(-2, -.5)
@@ -40,15 +37,15 @@ def arrow(ctx, s, e, arrow_size=20):
 
     ctx.restore()
 
-def draw_frame(t):
-    surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
+def draw_frame(t, width, height):
+    surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, width, height)
     ctx = cairo.Context (surface)
 
-    ctx.rectangle(0, 0, WIDTH, HEIGHT)
+    ctx.rectangle(0, 0, width, height)
     ctx.set_source_rgb(1, 1, 1)
     ctx.fill ()
 
-    o = (HEIGHT/2, HEIGHT/2)
+    o = (height/2, height/2)
     d = 360
     axis_length = d * 1.2
     x_history = int(o[0] + axis_length * 1.1)
@@ -81,7 +78,7 @@ def draw_frame(t):
     arrow(ctx, o, (o[0] + d * math.cos(phi), o[0] - d * math.sin(phi)))
 
     # Draw the wave-history
-    for x in range(x_history, WIDTH + 10):
+    for x in range(x_history, width + 10):
         phi = (t - x + x_history) * f * math.pi * 2
         ctx.line_to(x, o[0] - d * math.sin(phi))
     ctx.set_source_rgb(0, 0, 0)
@@ -90,15 +87,15 @@ def draw_frame(t):
     return surface
 
 
-def make_frame(frame_num):
-    frame = draw_frame(frame_num)
+def make_frame(draw_frame_func, frame_num, width, height):
+    frame = draw_frame_func(frame_num, width, height)
     f, path = tempfile.mkstemp('.png')
     os.close(f)
     frame.write_to_png(path)
     return path
 
 
-if __name__ == '__main__':
+def run(draw_frame_func, frame_count, width=1920, height=1080):
     parser = argparse.ArgumentParser(
         description='Render an animation with cairo and ffmpeg')
     parser.add_argument('out_path', metavar='OUT_PATH', type=str, nargs='?',
@@ -121,22 +118,24 @@ if __name__ == '__main__':
             args.out_path] + ([
             '-vcodec', 'rawvideo',
             '-pix_fmt', 'yuyv422',
-            '-window_size', '%dx%d' % (WIDTH/2, HEIGHT/2),
+            '-window_size', '%dx%d' % (width/2, height/2),
             '-f', 'sdl', 'Preview'
             ] if args.preview else [])
 
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
-    frames = [pool.apply_async(make_frame, (f,)) for f in range(FRAME_COUNT)]
+    frames = [pool.apply_async(make_frame, (draw_frame_func, f, width, height))
+            for f in range(frame_count)]
 
     p = sp.Popen(command, stdin=sp.PIPE,
             stdout=None if args.verbose else sp.PIPE, stderr=sp.STDOUT)
-    bar = progressbar.ProgressBar(max_value = FRAME_COUNT)
+    bar = progressbar.ProgressBar(max_value = frame_count)
 
     try:
-        for frame_num in range(FRAME_COUNT):
+        for frame_num in range(frame_count):
             png_path = frames[frame_num].get()
             with open(png_path, 'rb') as f:
                 p.stdin.write(f.read())
+                p.stdin.flush()
             os.remove(png_path)
             bar.update(frame_num)
         p.stdin.close()
@@ -144,3 +143,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         pass
+
+if __name__ == '__main__':
+    run(draw_frame, 200)
