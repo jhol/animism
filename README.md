@@ -24,11 +24,24 @@ animism
    $ sudo python3 setup.py install
    ```
 
-### Usage
+## Arguments
+```
+usage: test.py [-h] [-p] [-v] [OUT_PATH]
 
-Code example:
+Render an animation with cairo and ffmpeg
 
-#### `test.py`
+positional arguments:
+  OUT_PATH       The output file path
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -p, --preview  Display a preview window
+  -v, --verbose  Print verbose output to stdout
+```
+
+## Example
+
+### Code
 ```
 #!/usr/bin/env python3
 
@@ -71,7 +84,7 @@ if __name__ == '__main__':
     animism.run(draw_frame, 200)
 ```
 
-#### Usage
+### Usage
 ```
 $ python3 test.py
 $ mplayer out.mp4
