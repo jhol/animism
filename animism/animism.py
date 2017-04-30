@@ -19,7 +19,7 @@ def make_frame(draw_frame_func, frame_num, width, height):
     return path
 
 
-def run(draw_frame_func, frame_count, width=1920, height=1080):
+def run(draw_frame_func, frame_count, width=1920, height=1080, frame_rate=30):
     parser = argparse.ArgumentParser(
         description='Render an animation with cairo and ffmpeg')
     parser.add_argument('out_path', metavar='OUT_PATH', type=str, nargs='?',
@@ -33,12 +33,12 @@ def run(draw_frame_func, frame_count, width=1920, height=1080):
     command = [FFMPEG_BIN,
             '-y', # (optional) overwrite output file if it exists
             '-f', 'image2pipe',
-            '-r', '30',
+            '-r', str(frame_rate),
             '-vcodec', 'png',
-            '-r', '30', # frames per second
+            '-r', str(frame_rate),
             '-i', '-', # The imput comes from a pipe
             '-vcodec', 'libx264',
-            '-r', '30',
+            '-r', str(frame_rate),
             args.out_path] + ([
             '-vcodec', 'rawvideo',
             '-pix_fmt', 'yuyv422',
